@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -93,10 +95,15 @@ func main() {
 		http.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
 			if modifyRequestAuthz(rw, req, manager, audSlice[0]) {
 				req.Host = targetUrl.Host
+				body, _ := io.ReadAll(req.Body)
+				req.Body = io.NopCloser(bytes.NewReader(body))
+				req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(body)), nil }
 				proxy.ServeHTTP(rw, req)
 			}
 		})
 	} else if cfg.Ingress.Enabled {
+		var manager auth.KeyManager
+
 		validClaims, err := auth.ConvertValidatableClaimString(cfg.Ingress.ValidClaims)
 		if err != nil {
 			log.Fatalf("error parsing expected claims: %v\n", err)
@@ -112,36 +119,26 @@ func main() {
 		validClaims.AddClaim("aud", audSlice[0])
 
 		if cfg.Ingress.JwksUrl != "" {
-			manager := auth.NewJwksKeyManager(cfg.Ingress.JwksUrl, validClaims)
-
-			http.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
-				if validateRequestAuthz(rw, req, manager) {
-					req.Host = targetUrl.Host
-					proxy.ServeHTTP(rw, req)
-				}
-			})
+			manager = auth.NewJwksKeyManager(cfg.Ingress.JwksUrl, validClaims)
 		} else if cfg.Ingress.KeyData != "" {
 			key := detectValidatingKey([]byte(cfg.Ingress.KeyData))
-			manager := auth.NewManualKeyManager(key, validClaims)
-
-			http.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
-				if validateRequestAuthz(rw, req, manager) {
-					req.Host = targetUrl.Host
-					proxy.ServeHTTP(rw, req)
-				}
-			})
+			manager = auth.NewManualKeyManager(key, validClaims)
 		} else if cfg.Ingress.StaticToken != "" {
-			manager := auth.NewStaticKeyManager(cfg.Ingress.StaticToken, validClaims)
-
-			http.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
-				if validateRequestAuthz(rw, req, manager) {
-					req.Host = targetUrl.Host
-					proxy.ServeHTTP(rw, req)
-				}
-			})
+			manager = auth.NewStaticKeyManager(cfg.Ingress.StaticToken, validClaims)
 		} else {
 			log.Fatalln("failed to configure ingress")
 		}
+
+		http.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
+			if validateRequestAuthz(rw, req, manager) {
+				req.Host = targetUrl.Host
+				body, _ := io.ReadAll(req.Body)
+				req.Body = io.NopCloser(bytes.NewReader(body))
+				req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(body)), nil }
+				proxy.ServeHTTP(rw, req)
+			}
+		})
+
 	}
 
 	addr := fmt.Sprintf("%v:%v", cfg.Address, cfg.Port)
