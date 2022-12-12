@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-func TestConvertClaimString(t *testing.T) {
+func TestConvertValidatableClaimString(t *testing.T) {
 	testString := `{"a": 20, "b": 50.3, "c": "foo", "d": null}`
-	res, err := ConvertClaimString(testString)
+	res, err := ConvertValidatableClaimString(testString)
 	assert.Nil(t, err)
 	assert.NotNil(t, res)
 	claims := *res
