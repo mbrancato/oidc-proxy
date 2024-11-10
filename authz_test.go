@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/mbrancato/oidc-proxy/auth"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/mbrancato/oidc-proxy/auth"
 )
 
 func TestModifyValidateRequest(t *testing.T) {

@@ -2,9 +2,10 @@ package auth
 
 import (
 	"encoding/base64"
+	"testing"
+
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 const privateKey = `
