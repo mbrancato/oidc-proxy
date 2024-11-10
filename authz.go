@@ -4,11 +4,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/golang-jwt/jwt/v4"
-	"gopkg.in/yaml.v3"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v4"
+	"gopkg.in/yaml.v3"
 
 	"github.com/mbrancato/oidc-proxy/auth"
 )

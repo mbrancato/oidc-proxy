@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jessevdk/go-flags"
+
 	"github.com/mbrancato/oidc-proxy/auth"
 	"github.com/mbrancato/oidc-proxy/config"
 )

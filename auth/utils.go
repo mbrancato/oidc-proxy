@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/golang-jwt/jwt/v4"
-	"gopkg.in/yaml.v3"
 	"log"
 	"regexp"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v4"
+	"gopkg.in/yaml.v3"
 )
 
 func ConvertClaimString(claimString string) (*jwt.MapClaims, error) {
