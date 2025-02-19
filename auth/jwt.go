@@ -5,9 +5,26 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
+)
+
+var (
+	OidcStandardClaims = []string{
+		"sub", "name", "given_name", "family_name", "middle_name", "nickname",
+		"preferred_username", "profile", "picture", "website", "email", "email_verified", "gender", "birthdate",
+		"zoneinfo", "locale", "phone_number", "phone_number_verified", "address", "updated_at",
+	}
+	OidcIdTokenClaimsRequired = []string{"iss", "sub", "aud", "exp", "iat"}
+	OidcIdTokenExtraClaims    = []string{"auth_time", "nonce", "acr", "azp", "at_hash", "c_hash"}
+	OidcIdTokenClaims         = append(
+		OidcIdTokenClaimsRequired, append(
+			OidcStandardClaims,
+			OidcIdTokenExtraClaims...,
+		)...,
+	)
 )
 
 // A JwtTokenRetriever is an abstract interface that is designed to allow a
@@ -115,20 +132,35 @@ func (c ValidatableMapClaims) ValidateClaims(requestClaims *jwt.MapClaims) (bool
 				return false, fmt.Errorf("claim was not valid: %v", k)
 			}
 		case []string:
-			if k != "aud" {
-				return false, fmt.Errorf("claim did not match expected type: %v", k)
-			}
-			audExists := false
-			for a := range i {
-				if cv == a {
-					audExists = true
+			// Only 'aud' and 'amr' may be arrays of strings. Make sure all other OIDC claims are
+			// not in here.
+			if k != "aud" && k != "amr" {
+				if slices.Contains(OidcIdTokenClaims, k) {
+					return false, fmt.Errorf("claim did not match expected value: %v", k)
 				}
 			}
 
-			if !audExists {
+			// aud supports a list of audiences that are valid. We enforce strict order checking
+			// for this claim.
+			if k == "aud" {
+				audExists := false
+				for a := range i {
+					if cv == a {
+						audExists = true
+					}
+				}
+
+				if !audExists {
+					return false, fmt.Errorf("claim did not match expected value: %v", k)
+				}
+			}
+
+			// For other claims, the set of values must be equal, but order is ignored.
+			if !equivalentSet(i, cv.([]string)) {
 				return false, fmt.Errorf("claim did not match expected value: %v", k)
 			}
 
+			return true, nil
 		default:
 			if reflect.TypeOf(cv) != reflect.TypeOf(v) {
 				return false, fmt.Errorf("claim did not match expected type: %v", k)
@@ -176,4 +208,26 @@ func validateOidcRequiredClaims(claims *jwt.MapClaims) (bool, error) {
 		return false, errors.New("issuer claim was missing from ID token")
 	}
 	return true, nil
+}
+
+// areEqualIgnoreOrder checks if two string slices contain the same elements, ignoring order
+func equivalentSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// probably a little slower, but this bidirectional check is simple
+	for _, v := range a {
+		if !slices.Contains(b, v) {
+			return false
+		}
+	}
+
+	for _, v := range b {
+		if !slices.Contains(a, v) {
+			return false
+		}
+	}
+
+	return true
 }
