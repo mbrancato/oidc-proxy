@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mbrancato/oidc-proxy/auth"
