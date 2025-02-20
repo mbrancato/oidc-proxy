@@ -142,7 +142,7 @@ func TestJwksValidation(t *testing.T) {
 				"exp": time.Now().Add(time.Minute).Unix(),
 				"iat": time.Now().Unix(),
 			},
-			success:  true,
+			success:  false, // kid is technically optional, the keyfunc library requires it
 			hasKeyId: false,
 		},
 		{
