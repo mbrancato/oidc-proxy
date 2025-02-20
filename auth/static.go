@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // A StaticTokenRetriever implements the JwtTokenRetriever interface for use with tokens
