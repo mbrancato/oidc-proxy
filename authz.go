@@ -36,16 +36,25 @@ func validateRequestAuthz(rw http.ResponseWriter, req *http.Request, manager aut
 		return false
 	}
 
-	tokenString := strings.Split(az, " ")[1]
+	tokenSlice := strings.Split(az, " ")
+	if len(tokenSlice) != 2 {
+		rw.WriteHeader(http.StatusUnauthorized)
+		_, _ = rw.Write([]byte("invalid authorization header format"))
+		return false
+	}
+	tokenString := tokenSlice[1]
 	if tokenString == "" {
 		rw.WriteHeader(http.StatusUnauthorized)
+		_, _ = rw.Write([]byte("empty token in authorization header"))
 		return false
 	}
 
 	v, err := manager.Validate(tokenString)
 	if !v {
 		rw.WriteHeader(http.StatusUnauthorized)
-		_, _ = rw.Write([]byte(err.Error()))
+		if err != nil {
+			_, _ = rw.Write([]byte(err.Error()))
+		}
 		return false
 	}
 
