@@ -94,6 +94,10 @@ func (m *JwtManager) Token(aud string) (string, error) {
 		}
 	}
 
+	if m.token == "" {
+		return "", errors.New("no token available")
+	}
+
 	return m.token, nil
 }
 
