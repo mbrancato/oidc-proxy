@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          persist-credentials: 'false'
 
       - name: Fetch Tags
         run: git fetch --tags
@@ -31,9 +33,27 @@ jobs:
 
       - name: Setup Go
         uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Set Go Toolchain to Local
+        run: |
+          echo "GOTOOLCHAIN=local" >> $GITHUB_ENV
+          go version
+
+      - name: Update Go Toolchain in go.mod
+        run: |
+          GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+          go mod edit -go=$GO_VERSION -toolchain=go$GO_VERSION
 
       - name: Update Go Modules
         run: go get -t -u ./...
+
+      - name: Download Dependencies
+        run: go mod download
+
+      - name: Verify Dependencies
+        run: go mod verify
 
       - name: Tidy Go Modules
         run: go mod tidy

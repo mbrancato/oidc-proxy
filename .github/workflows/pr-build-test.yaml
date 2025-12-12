@@ -1,0 +1,54 @@
+# This workflow builds and tests pull requests.
+name: Build and Test PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Restrict permissions to minimum required (read-only)
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  build_and_test:
+    name: Build and Test PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout PR Code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: 'false'
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Set Go Toolchain to Local
+        run: |
+          echo "GOTOOLCHAIN=local" >> $GITHUB_ENV
+          go version
+
+      - name: Update Go Toolchain in go.mod
+        run: |
+          GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
+          go mod edit -go=$GO_VERSION -toolchain=go$GO_VERSION
+
+      - name: Update Go Modules
+        run: go get -t -u ./...
+
+      - name: Download Dependencies
+        run: go mod download
+
+      - name: Verify Dependencies
+        run: go mod verify
+
+      - name: Run Tests
+        run: go test -count 1 -v ./...
+
+      - name: Build
+        run: go build -v .
+
