@@ -17,9 +17,11 @@ import (
 )
 
 type jwksTester struct {
-	privateKey *rsa.PrivateKey
-	keyId      string
-	jwksUrl    string
+	invalidKey   *rsa.PrivateKey
+	privateKey   *rsa.PrivateKey
+	invalidKeyId string
+	keyId        string
+	jwksUrl      string
 }
 
 func (t *jwksTester) jwksHandler(w http.ResponseWriter, r *http.Request) {
@@ -51,9 +53,17 @@ func setupJwksForTest() (*jwksTester, func()) {
 	}
 	kid := keyFingerprint(key)
 
+	invalidKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+	invalidKid := keyFingerprint(invalidKey)
+
 	tn := jwksTester{
-		privateKey: key,
-		keyId:      kid,
+		invalidKey:   invalidKey,
+		privateKey:   key,
+		invalidKeyId: invalidKid,
+		keyId:        kid,
 	}
 
 	s := tn.startJwksServer()
@@ -104,10 +114,11 @@ func TestJwksValidation(t *testing.T) {
 	defer closer()
 
 	tests := []struct {
-		name     string
-		claims   jwt.MapClaims
-		hasKeyId bool
-		success  bool
+		name       string
+		claims     jwt.MapClaims
+		hasKeyId   bool
+		success    bool
+		invalidKey bool
 	}{
 		{
 			name: "valid token",
@@ -142,8 +153,35 @@ func TestJwksValidation(t *testing.T) {
 				"exp": time.Now().Add(time.Minute).Unix(),
 				"iat": time.Now().Unix(),
 			},
-			success:  false, // kid is technically optional, the keyfunc library requires it
+			// the keyfunc v3.5.0+ no longer requires a kid to find the key
+			success:  true,
 			hasKeyId: false,
+		},
+		{
+			name: "invalidKey key",
+			claims: jwt.MapClaims{
+				"aud": "test-svc",
+				"iss": "https://test-svc",
+				"sub": "1234567890",
+				"exp": time.Now().Add(time.Minute).Unix(),
+				"iat": time.Now().Unix(),
+			},
+			success:    false,
+			hasKeyId:   true,
+			invalidKey: true,
+		},
+		{
+			name: "invalidKey key missing kid",
+			claims: jwt.MapClaims{
+				"aud": "test-svc",
+				"iss": "https://test-svc",
+				"sub": "1234567890",
+				"exp": time.Now().Add(time.Minute).Unix(),
+				"iat": time.Now().Unix(),
+			},
+			success:    false,
+			hasKeyId:   false,
+			invalidKey: true,
 		},
 		{
 			name: "expired token missing kid",
@@ -162,11 +200,20 @@ func TestJwksValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(
 			tt.name, func(t *testing.T) {
+				var tokenString string
+				var err error
 				token := jwt.NewWithClaims(jwt.SigningMethodRS256, tt.claims)
-				if tt.hasKeyId {
-					token.Header["kid"] = tn.keyId
+				if tt.invalidKey {
+					if tt.hasKeyId {
+						token.Header["kid"] = tn.keyId
+					}
+					tokenString, err = token.SignedString(tn.invalidKey)
+				} else {
+					if tt.hasKeyId {
+						token.Header["kid"] = tn.keyId
+					}
+					tokenString, err = token.SignedString(tn.privateKey)
 				}
-				tokenString, err := token.SignedString(tn.privateKey)
 				assert.NoError(t, err)
 
 				manager := NewJwksKeyManager(tn.jwksUrl, &ValidatableMapClaims{"aud": "test-svc"})
