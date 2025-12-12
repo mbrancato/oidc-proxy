@@ -37,9 +37,6 @@ jobs:
           GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
           go mod edit -go=$GO_VERSION -toolchain=go$GO_VERSION
 
-      - name: Update Go Modules
-        run: go get -t -u ./...
-
       - name: Download Dependencies
         run: go mod download
 
